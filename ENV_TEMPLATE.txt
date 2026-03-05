@@ -1,0 +1,20 @@
+# Database Configuration
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=warehouse_monitoring
+DB_USER=root
+DB_PASSWORD=your_password_here
+
+# JWT Secret (Change this to a strong random string in production)
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+
+# Server Configuration
+PORT=3000
+
+# Environment (development or production)
+# For development, use 'development' or leave it unset
+# For production, use 'production' and set ALLOWED_ORIGINS
+NODE_ENV=development
+
+# CORS Configuration (Only needed in production)
+# ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
