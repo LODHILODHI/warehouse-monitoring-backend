@@ -17,6 +17,8 @@ Authorization: Bearer <your-jwt-token>
 | Method | Endpoint | Auth Required | Role Required | Description |
 |--------|----------|---------------|---------------|-------------|
 | POST | `/login` | ❌ | - | Login and get token |
+| GET | `/me` | ✅ | - | Get current user profile |
+| PATCH | `/me` | ✅ | - | Update current user profile (name, email, password) |
 | POST | `/warehouses` | ✅ | `super_admin` | Create warehouse |
 | GET | `/warehouses` | ✅ | - | Get all warehouses |
 | POST | `/stock` | ✅ | `inspector` | Create stock entry |
@@ -47,7 +49,51 @@ POST /api/login
 }
 ```
 
-### 2. Get Warehouses
+### 2. Get current user profile
+```javascript
+// Request
+GET /api/me
+Headers: { Authorization: "Bearer <token>" }
+
+// Response
+{
+  "user": {
+    "id": "uuid",
+    "name": "John Doe",
+    "email": "inspector@example.com",
+    "role": "inspector",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+### 3. Update current user profile
+```javascript
+// Request (send only fields you want to update)
+PATCH /api/me
+Headers: { Authorization: "Bearer <token>" }
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "password": "newpassword123"
+}
+
+// Response
+{
+  "message": "Profile updated successfully",
+  "user": {
+    "id": "uuid",
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "role": "inspector",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T12:00:00.000Z"
+  }
+}
+```
+
+### 4. Get Warehouses
 ```javascript
 // Request
 GET /api/warehouses
@@ -70,7 +116,7 @@ Headers: { Authorization: "Bearer <token>" }
 }
 ```
 
-### 3. Create Warehouse (Super Admin)
+### 5. Create Warehouse (Super Admin)
 ```javascript
 // Request
 POST /api/warehouses
@@ -90,7 +136,7 @@ Headers: { Authorization: "Bearer <token>" }
 }
 ```
 
-### 4. Create Stock Entry (Inspector)
+### 6. Create Stock Entry (Inspector)
 ```javascript
 // Request
 POST /api/stock
@@ -110,7 +156,7 @@ Headers: { Authorization: "Bearer <token>" }
 }
 ```
 
-### 5. Get Stock Entries
+### 7. Get Stock Entries
 ```javascript
 // Request
 GET /api/stock/:warehouseId

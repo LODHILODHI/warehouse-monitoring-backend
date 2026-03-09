@@ -1,4 +1,6 @@
 const { User, InspectorWarehouse } = require('../models');
+const { validatePassword } = require('../utils/passwordPolicy');
+const { logAudit } = require('../utils/auditHelper');
 
 const createUser = async (req, res) => {
   try {
@@ -8,6 +10,11 @@ const createUser = async (req, res) => {
       return res.status(400).json({ 
         error: 'Name, email, and password are required' 
       });
+    }
+
+    const pwdCheck = validatePassword(password);
+    if (!pwdCheck.valid) {
+      return res.status(400).json({ error: pwdCheck.error });
     }
 
     if (role && !['super_admin', 'inspector', 'permanent_secretary'].includes(role)) {
@@ -38,6 +45,8 @@ const createUser = async (req, res) => {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt
     };
+
+    await logAudit(req, 'user_created', 'user', user.id, { email: user.email, role: user.role });
 
     res.status(201).json({
       message: 'User created successfully',
@@ -162,7 +171,13 @@ const updateUser = async (req, res) => {
       }
       user.email = email;
     }
-    if (password !== undefined) user.password = password; // Will be hashed automatically
+    if (password !== undefined) {
+      const pwdCheck = validatePassword(password);
+      if (!pwdCheck.valid) {
+        return res.status(400).json({ error: pwdCheck.error });
+      }
+      user.password = password; // Will be hashed automatically
+    }
     if (role !== undefined) {
       if (!['super_admin', 'inspector', 'permanent_secretary'].includes(role)) {
         return res.status(400).json({ 
@@ -173,6 +188,8 @@ const updateUser = async (req, res) => {
     }
 
     await user.save();
+
+    await logAudit(req, 'user_updated', 'user', user.id, { email: user.email, role: user.role });
 
     // Remove password from response
     const userResponse = {
@@ -211,7 +228,10 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const deletedEmail = user.email;
     await user.destroy();
+
+    await logAudit(req, 'user_deleted', 'user', id, { email: deletedEmail });
 
     res.json({
       message: 'User deleted successfully'

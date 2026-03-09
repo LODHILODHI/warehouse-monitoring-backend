@@ -10,6 +10,11 @@ const reportsRoutes = require('./routes/reports.routes');
 const userRoutes = require('./routes/user.routes');
 const mapRoutes = require('./routes/map.routes');
 const inspectorRoutes = require('./routes/inspector.routes');
+const securityRoutes = require('./routes/security.routes');
+const auditRoutes = require('./routes/audit.routes');
+const adminRoutes = require('./routes/admin.routes');
+const { maintenanceCheck } = require('./middleware/maintenance.middleware');
+const { getPublicSettings } = require('./controllers/admin.controller');
 
 const app = express();
 
@@ -63,6 +68,12 @@ if (isDevelopment) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Maintenance mode (must be before routes; allows /api/login, /api/admin, /api/settings/public)
+app.use('/api', maintenanceCheck);
+
+// Public settings (no auth) - system name, maintenance message, feature flags
+app.get('/api/settings/public', getPublicSettings);
+
 // Routes
 app.use('/api', authRoutes);
 app.use('/api/warehouses', warehouseRoutes);
@@ -73,6 +84,9 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/map', mapRoutes);
 app.use('/api/inspector', inspectorRoutes);
+app.use('/api/security', securityRoutes);
+app.use('/api/audit-logs', auditRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

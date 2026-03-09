@@ -1,8 +1,9 @@
 const { Warehouse, Camera, InspectorWarehouse, User, StockEntry } = require('../models');
+const { logAudit } = require('../utils/auditHelper');
 
 const createWarehouse = async (req, res) => {
   try {
-    const { name, latitude, longitude, address, status } = req.body;
+    const { name, latitude, longitude, address, status, capacity } = req.body;
 
     if (!name || !latitude || !longitude || !address) {
       return res.status(400).json({ 
@@ -15,8 +16,11 @@ const createWarehouse = async (req, res) => {
       latitude,
       longitude,
       address,
-      status: status || 'active'
+      status: status || 'active',
+      capacity: capacity != null ? parseInt(capacity, 10) : null
     });
+
+    await logAudit(req, 'warehouse_created', 'warehouse', warehouse.id, { name: warehouse.name });
 
     res.status(201).json({
       message: 'Warehouse created successfully',
@@ -92,6 +96,7 @@ const getWarehouses = async (req, res) => {
         longitude: warehouseJson.longitude,
         address: warehouseJson.address,
         status: warehouseJson.status,
+        capacity: warehouseJson.capacity,
         createdAt: warehouseJson.createdAt,
         updatedAt: warehouseJson.updatedAt,
         assignedInspectors: assignedInspectors.map(iw => ({
@@ -159,6 +164,7 @@ const getWarehouseById = async (req, res) => {
       longitude: warehouseJson.longitude,
       address: warehouseJson.address,
       status: warehouseJson.status,
+      capacity: warehouseJson.capacity,
       createdAt: warehouseJson.createdAt,
       updatedAt: warehouseJson.updatedAt,
       cameras: warehouseJson.cameras || [],
@@ -181,7 +187,7 @@ const getWarehouseById = async (req, res) => {
 const updateWarehouse = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, latitude, longitude, address, status } = req.body;
+    const { name, latitude, longitude, address, status, capacity } = req.body;
 
     const warehouse = await Warehouse.findByPk(id);
     if (!warehouse) {
@@ -199,8 +205,11 @@ const updateWarehouse = async (req, res) => {
       }
       warehouse.status = status;
     }
+    if (capacity !== undefined) warehouse.capacity = capacity == null ? null : parseInt(capacity, 10);
 
     await warehouse.save();
+
+    await logAudit(req, 'warehouse_updated', 'warehouse', warehouse.id, { name: warehouse.name });
 
     res.json({
       message: 'Warehouse updated successfully',
@@ -224,7 +233,10 @@ const deleteWarehouse = async (req, res) => {
       return res.status(404).json({ error: 'Warehouse not found' });
     }
 
+    const warehouseName = warehouse.name;
     await warehouse.destroy();
+
+    await logAudit(req, 'warehouse_deleted', 'warehouse', id, { name: warehouseName });
 
     res.json({
       message: 'Warehouse deleted successfully'

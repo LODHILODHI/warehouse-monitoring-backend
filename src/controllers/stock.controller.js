@@ -1,4 +1,5 @@
 const { StockEntry, Warehouse, User, InspectorWarehouse } = require('../models');
+const { logAudit } = require('../utils/auditHelper');
 
 const createStockEntry = async (req, res) => {
   try {
@@ -44,6 +45,8 @@ const createStockEntry = async (req, res) => {
       quantity,
       notes: notes || null
     });
+
+    await logAudit(req, 'stock_entry_created', 'stock_entry', stockEntry.id, { warehouseId, type, itemName, quantity });
 
     res.status(201).json({
       message: 'Stock entry created successfully',
@@ -130,6 +133,8 @@ const updateStockEntry = async (req, res) => {
 
     await stockEntry.save();
 
+    await logAudit(req, 'stock_entry_updated', 'stock_entry', stockEntry.id, { type: stockEntry.type, itemName: stockEntry.itemName, quantity: stockEntry.quantity });
+
     res.json({
       message: 'Stock entry updated successfully',
       stockEntry
@@ -157,7 +162,11 @@ const deleteStockEntry = async (req, res) => {
       return res.status(403).json({ error: 'You can only delete your own stock entries' });
     }
 
+    const entryId = stockEntry.id;
+    const details = { warehouseId: stockEntry.warehouseId, itemName: stockEntry.itemName, quantity: stockEntry.quantity };
     await stockEntry.destroy();
+
+    await logAudit(req, 'stock_entry_deleted', 'stock_entry', entryId, details);
 
     res.json({
       message: 'Stock entry deleted successfully'
@@ -168,9 +177,106 @@ const deleteStockEntry = async (req, res) => {
   }
 };
 
+/**
+ * Transfer stock between warehouses: creates OUT at source, IN at destination.
+ * POST body: { fromWarehouseId, toWarehouseId, itemName, quantity, notes? }
+ */
+const transferStock = async (req, res) => {
+  try {
+    const { fromWarehouseId, toWarehouseId, itemName, quantity, notes } = req.body;
+
+    if (!fromWarehouseId || !toWarehouseId || !itemName || !quantity) {
+      return res.status(400).json({
+        error: 'fromWarehouseId, toWarehouseId, itemName, and quantity are required'
+      });
+    }
+
+    if (fromWarehouseId === toWarehouseId) {
+      return res.status(400).json({ error: 'Source and destination warehouse must be different' });
+    }
+
+    if (quantity < 1) {
+      return res.status(400).json({ error: 'Quantity must be at least 1' });
+    }
+
+    const fromWarehouse = await Warehouse.findByPk(fromWarehouseId);
+    const toWarehouse = await Warehouse.findByPk(toWarehouseId);
+
+    if (!fromWarehouse) {
+      return res.status(404).json({ error: 'Source warehouse not found' });
+    }
+    if (!toWarehouse) {
+      return res.status(404).json({ error: 'Destination warehouse not found' });
+    }
+
+    if (req.user.role === 'inspector') {
+      const fromAssign = await InspectorWarehouse.findOne({
+        where: { userId: req.user.id, warehouseId: fromWarehouseId }
+      });
+      const toAssign = await InspectorWarehouse.findOne({
+        where: { userId: req.user.id, warehouseId: toWarehouseId }
+      });
+      if (!fromAssign || !toAssign) {
+        return res.status(403).json({
+          error: 'Inspector must be assigned to both source and destination warehouses to transfer'
+        });
+      }
+    }
+
+    const transferNote = notes
+      ? `${notes} (Transferred to ${toWarehouse.name})`
+      : `Transferred to ${toWarehouse.name}`;
+    const inNote = notes
+      ? `${notes} (Transferred from ${fromWarehouse.name})`
+      : `Transferred from ${fromWarehouse.name}`;
+
+    const outEntry = await StockEntry.create({
+      warehouseId: fromWarehouseId,
+      inspectorId: req.user.id,
+      type: 'OUT',
+      itemName,
+      quantity,
+      notes: transferNote
+    });
+
+    const inEntry = await StockEntry.create({
+      warehouseId: toWarehouseId,
+      inspectorId: req.user.id,
+      type: 'IN',
+      itemName,
+      quantity,
+      notes: inNote
+    });
+
+    await logAudit(req, 'stock_transferred', 'stock_entry', null, {
+      fromWarehouseId,
+      toWarehouseId,
+      itemName,
+      quantity,
+      outEntryId: outEntry.id,
+      inEntryId: inEntry.id
+    });
+
+    res.status(201).json({
+      message: 'Stock transfer completed successfully',
+      transfer: {
+        out: outEntry,
+        in: inEntry
+      }
+    });
+  } catch (error) {
+    console.error('Transfer stock error:', error);
+    if (error.name === 'SequelizeValidationError') {
+      return res.status(400).json({ error: error.errors[0].message });
+    }
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   createStockEntry,
   getStockEntries,
   updateStockEntry,
-  deleteStockEntry
+  deleteStockEntry,
+  transferStock
 };

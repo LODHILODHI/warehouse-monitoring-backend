@@ -30,6 +30,11 @@ Warehouse.init(
       type: DataTypes.ENUM('active', 'inactive'),
       allowNull: false,
       defaultValue: 'active'
+    },
+    capacity: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      comment: 'Max capacity (units) for warehouse; used for % full alerts'
     }
   },
   {

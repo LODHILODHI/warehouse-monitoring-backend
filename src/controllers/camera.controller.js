@@ -1,4 +1,5 @@
 const { Camera, Warehouse } = require('../models');
+const { logAudit } = require('../utils/auditHelper');
 
 const createCamera = async (req, res) => {
   try {
@@ -22,6 +23,8 @@ const createCamera = async (req, res) => {
       streamUrl,
       status: status || 'offline'
     });
+
+    await logAudit(req, 'camera_created', 'camera', camera.id, { name: camera.name, warehouseId });
 
     res.status(201).json({
       message: 'Camera created successfully',
@@ -108,6 +111,8 @@ const updateCamera = async (req, res) => {
 
     await camera.save();
 
+    await logAudit(req, 'camera_updated', 'camera', camera.id, { name: camera.name, status: camera.status });
+
     res.json({
       message: 'Camera updated successfully',
       camera
@@ -130,7 +135,11 @@ const deleteCamera = async (req, res) => {
       return res.status(404).json({ error: 'Camera not found' });
     }
 
+    const cameraName = camera.name;
+    const whId = camera.warehouseId;
     await camera.destroy();
+
+    await logAudit(req, 'camera_deleted', 'camera', id, { name: cameraName, warehouseId: whId });
 
     res.json({
       message: 'Camera deleted successfully'
