@@ -6,7 +6,7 @@ Super_admin only. Base URL and auth same as rest of API: `Authorization: Bearer 
 
 ## 1. Public settings (no auth)
 
-Use for login page and app shell: system name, maintenance message, feature flags.
+Use for login page and app shell: system name, maintenance message, feature flags.a
 
 **Endpoint:** `GET /api/settings/public`
 
